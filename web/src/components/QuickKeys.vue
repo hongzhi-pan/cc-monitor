@@ -1,6 +1,6 @@
 <script setup lang="ts">
-defineProps<{ disabled?: boolean }>();
-const emit = defineEmits<{ key: [name: string] }>();
+defineProps<{ disabled?: boolean; pasteOpen?: boolean }>();
+const emit = defineEmits<{ key: [name: string]; paste: [] }>();
 // 回车放第一个：手机上最常用，也最不该被挤到屏幕外
 const keys: { name: string; label: string }[] = [
   { name: 'enter', label: 'Enter' }, { name: 'esc', label: 'Esc' }, { name: 'tab', label: 'Tab' },
@@ -12,6 +12,8 @@ const keys: { name: string; label: string }[] = [
 <template>
   <div class="keys">
     <button v-for="k in keys" :key="k.name" :data-key="k.name" class="key" :disabled="disabled" @click="emit('key', k.name)">{{ k.label }}</button>
+    <!-- 终端里长按粘贴不了：点这里弹出输入框，粘贴或打字后发送 -->
+    <button data-key="paste" class="key" :class="{ on: pasteOpen }" :disabled="disabled" @click="emit('paste')">粘贴</button>
   </div>
 </template>
 
@@ -19,6 +21,7 @@ const keys: { name: string; label: string }[] = [
 /* 换行排布而不是横向滚动：窄屏上所有按键都看得见，按键够大好点 */
 .keys { display: flex; flex-wrap: wrap; gap: 2px 0; padding: 2px 6px; font-size: 12px; border-top: 1px solid var(--line); background: var(--bg); }
 .key { flex: 0 0 auto; min-height: 30px; padding: 4px 3px; }
-.key[data-key="enter"] { color: var(--orange); }
+.key[data-key="enter"], .key.on { color: var(--orange); }
+.key.on::before, .key.on::after { color: var(--orange); }
 .key[data-key="enter"]::before, .key[data-key="enter"]::after { color: var(--orange); }
 </style>

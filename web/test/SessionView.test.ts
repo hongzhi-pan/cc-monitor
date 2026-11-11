@@ -144,6 +144,12 @@ describe('SessionView', () => {
     await w.find('[data-test="tab-term"]').trigger('click');
     await flushPromises();
     expect(composerShown()).toBe(false);
+    await w.find('[data-key="paste"]').trigger('click'); // 终端里没法长按粘贴：按钮唤出输入框
+    expect(composerShown()).toBe(true);
+    await w.find('textarea').setValue('粘贴的内容');
+    await w.find('[data-test="send"]').trigger('click');
+    expect(sockets[0].sent).toContainEqual({ t: 'paste', text: '粘贴的内容' });
+    expect(composerShown()).toBe(false); // 发送后自动收起
     const before = termRefits;
     sockets[0].status!('closed');
     sockets[0].status!('open');

@@ -19,6 +19,7 @@ const socketStatus = ref<SocketStatus>('connecting');
 const banner = ref('');
 const errorText = ref('');
 const stopped = ref(false);
+const termComposer = ref(false); // 终端页的输入框默认收起，点"粘贴"才出来
 const term = ref<InstanceType<typeof TerminalPane> | null>(null);
 const composer = ref<InstanceType<typeof Composer> | null>(null);
 let socket: ReconnectingSocket | null = null;
@@ -60,6 +61,7 @@ function send(text: string) {
     return;
   }
   composer.value?.clear();
+  termComposer.value = false;
   if (text.trim().startsWith('/')) {
     // 斜杠命令的菜单和对话框只在终端画面里显示，聊天视图看不到
     void switchTab('term');
@@ -144,11 +146,11 @@ onUnmounted(() => {
       <ChatPane v-show="tab === 'chat'" :messages="messages" empty-hint="发出第一条 prompt 后这里会显示对话" />
       <div v-show="tab === 'term'" class="termwrap">
         <TerminalPane ref="term" :min-cols="MIN_COLS" @input="onTermInput" @resize="onTermResize" @active="onTermActive" />
-        <QuickKeys :disabled="!canInput" @key="sendKey" />
+        <QuickKeys :disabled="!canInput" :paste-open="termComposer" @key="sendKey" @paste="termComposer = !termComposer" />
       </div>
     </section>
-    <!-- 终端画面里 CC 自己有输入框，再放一个会重复，还占掉终端的行数 -->
-    <Composer v-show="tab === 'chat'" ref="composer" :disabled="!canInput" @send="send" />
+    <!-- 终端画面里 CC 自己有输入框，再常驻一个会重复，还占掉终端的行数；需要粘贴时由快捷键条的"粘贴"唤出 -->
+    <Composer v-show="tab === 'chat' || termComposer" ref="composer" :disabled="!canInput" @send="send" />
   </div>
 </template>
 

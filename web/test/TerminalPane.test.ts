@@ -74,6 +74,35 @@ describe('TerminalPane', () => {
     expect(deltas[deltas.length - 1]).toBeLessThan(0);
   });
 
+  it('keeps scrolling with inertia after a fast flick, and a new touch stops it', async () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
+    try {
+      const w = mount(TerminalPane, { props: { minCols: 80 } });
+      const t = terms.at(-1)!;
+      let ticks = 0;
+      t.element.addEventListener('wheel', () => { ticks += 1; });
+      const host = w.find('.term').element;
+      const touch = (type: string, y: number, ts: number) => {
+        const e = new TouchEvent(type, { touches: type === 'touchend' ? [] : [{ clientY: y, clientX: 10 } as Touch], bubbles: true, cancelable: true });
+        Object.defineProperty(e, 'timeStamp', { value: ts });
+        host.dispatchEvent(e);
+      };
+      touch('touchstart', 300, 0);
+      touch('touchmove', 250, 16);
+      touch('touchmove', 200, 32);
+      touch('touchend', 200, 40);
+      const afterDrag = ticks;
+      vi.advanceTimersByTime(200);
+      expect(ticks).toBeGreaterThan(afterDrag);
+      touch('touchstart', 200, 300); // 手指按住：惯性立刻停
+      const held = ticks;
+      vi.advanceTimersByTime(300);
+      expect(ticks).toBe(held);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shrinks the font until minCols fit, and warns only when even the smallest font is too wide', async () => {
     layout.fitCols = 36;
     layout.hidden = false;

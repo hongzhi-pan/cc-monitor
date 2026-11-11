@@ -41,22 +41,64 @@ function refit() {
 }
 
 // 手机上没有滚轮：把手指的上下拖动换算成滚轮事件交给 xterm，
-// Claude Code 开着鼠标跟踪时会收到滚动序列并滚动自己的内容
+// Claude Code 开着鼠标跟踪时会收到滚动序列并滚动自己的内容。
+// 手指每移动一行的高度就滚一行，画面跟手；松手后按离手速度带惯性继续滑一段
 let lastTouchY: number | null = null;
+let lastTouchT = 0;
+let velocity = 0; // 像素/毫秒，向上滑为正
+let pendingPx = 0;
+let inertiaRaf = 0;
+
+function lineHeight(): number {
+  const h = host.value?.clientHeight ?? 0;
+  return term && h > 0 ? Math.max(8, h / term.rows) : 17;
+}
+function scrollByPx(px: number) {
+  if (!term?.element) return;
+  pendingPx += px;
+  const lines = Math.trunc(pendingPx / lineHeight());
+  if (lines === 0) return;
+  pendingPx -= lines * lineHeight();
+  const step = Math.sign(lines);
+  for (let i = 0; i < Math.abs(lines); i++) {
+    term.element.dispatchEvent(new WheelEvent('wheel', { deltaY: step, deltaMode: 1, bubbles: true, cancelable: true }));
+  }
+}
+function stopInertia() {
+  if (inertiaRaf) cancelAnimationFrame(inertiaRaf);
+  inertiaRaf = 0;
+}
 function onTouchStart(e: TouchEvent) {
+  stopInertia();
   lastTouchY = e.touches[0]?.clientY ?? null;
+  lastTouchT = e.timeStamp;
+  velocity = 0;
+  pendingPx = 0;
 }
 function onTouchMove(e: TouchEvent) {
   const y = e.touches[0]?.clientY;
   if (y === undefined || lastTouchY === null || !term?.element) return;
-  const dy = lastTouchY - y;
-  if (Math.abs(dy) < 4) return;
-  lastTouchY = y;
   e.preventDefault();
-  term.element.dispatchEvent(new WheelEvent('wheel', { deltaY: dy * 2, deltaMode: 0, bubbles: true, cancelable: true }));
+  const dy = lastTouchY - y;
+  const dt = Math.max(1, e.timeStamp - lastTouchT);
+  lastTouchY = y;
+  lastTouchT = e.timeStamp;
+  velocity = 0.6 * velocity + 0.4 * (dy / dt);
+  scrollByPx(dy);
 }
-function onTouchEnd() {
+function onTouchEnd(e: TouchEvent) {
   lastTouchY = null;
+  // 停住再抬手不算甩动
+  if (e.timeStamp - lastTouchT > 80 || Math.abs(velocity) < 0.3 || typeof requestAnimationFrame === 'undefined') return;
+  let prev = performance.now();
+  const tick = (now: number) => {
+    const dt = Math.min(50, now - prev);
+    prev = now;
+    scrollByPx(velocity * dt);
+    velocity *= Math.pow(0.95, dt / 16);
+    inertiaRaf = Math.abs(velocity) > 0.05 ? requestAnimationFrame(tick) : 0;
+  };
+  inertiaRaf = requestAnimationFrame(tick);
 }
 
 onMounted(() => {
@@ -86,6 +128,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  stopInertia();
   observer?.disconnect();
   term?.dispose();
   term = null;

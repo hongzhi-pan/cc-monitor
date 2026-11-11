@@ -61,7 +61,9 @@ netsh advfirewall firewall add rule name="cc-monitor" dir=in action=allow protoc
 claude --bg --name 项目名
 ```
 
-手机列表里点进它，就可以读对话、发 prompt、看终端了。完整说明见 [使用手册](docs/cc-monitor%20使用手册.md)。
+手机列表里点进它，就可以读对话、发 prompt、看终端了。已经用普通方式开着的会话，在手机上点 `[转为后台会话]` 也能接管。
+
+更新代码后要重新 `npm install`、`npm run build -w web`，并**重启监测器**，否则新功能不生效。完整说明见 [使用手册](docs/cc-monitor%20使用手册.md)。
 
 ## 在电脑上看同一个会话
 

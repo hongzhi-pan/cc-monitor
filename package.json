@@ -1,6 +1,9 @@
 {
   "name": "cc-monitor",
   "private": true,
+  "bin": {
+    "ccm": "bin/ccm.mjs"
+  },
   "workspaces": [
     "server",
     "web",

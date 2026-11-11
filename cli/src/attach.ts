@@ -47,7 +47,7 @@ if (target) {
 }
 if (!info) {
   const available = bg.map((s) => `${s.jobId}  ${s.name}  ${s.cwd}`).join('\n  ');
-  console.error(`${target ? `没有名为 ${target} 的后台会话` : '当前目录里没有后台会话'}。当前可用（可在后面加短 id 或会话名指定）：\n  ${available || '（无）'}`);
+  console.error(`${target ? `没有名为 ${target} 的后台会话` : '当前目录里没有后台会话'}。当前可用（可用 ccm <短id或会话名> 指定）：\n  ${available || '（无）'}`);
   process.exit(1);
 }
 

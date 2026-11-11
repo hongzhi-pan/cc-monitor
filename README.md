@@ -25,10 +25,11 @@ Claude Code 自带后台会话（`claude --bg`），终端关了也不会退出�
 
 - **会话列表**：列出本机正在运行的全部 Claude Code 会话，实时显示忙碌 / 空闲，自动刷新。
 - **聊天视图**：按 Claude Code 终端的转录样式渲染对话，你的 prompt、回答、工具调用、工具结果和思考各有标记，长结果默认折叠，适合手机阅读。
-- **终端画面**：和电脑终端一模一样的画面，带 Esc、Ctrl+C、Tab、方向键等快捷键条，用来处理权限确认和斜杠命令。
+- **终端画面**：和电脑终端一模一样的画面，按手机宽度排版，手指上下滑动带惯性；快捷键条常驻 Enter、Esc、方向键、Tab，展开后还有数字、编辑、翻页和 Claude Code 自己的快捷键；带"粘贴"按钮。
 - **发送 prompt**：底部输入框支持多行，整段作为一条 prompt 发出；网络断开时文字保留不丢。
 - **多端同步**：手机、电脑浏览器、本地终端可以同时看同一个会话，画面同步，都能输入。
 - **停止会话**：手机上两次点击即可停止后台会话，对话记录保留。
+- **转为后台会话**：普通方式启动的会话，在手机上两次点击即可转成后台会话并接管输入。
 - **手机提醒**：配合 Claude Code 的 hooks，在需要确认权限或一轮回答结束时弹出横幅。
 - **界面**：Claude Code 终端风格，等宽字体、近黑底色、品牌橙强调。
 
@@ -36,7 +37,7 @@ Claude Code 自带后台会话（`claude --bg`），终端关了也不会退出�
 
 - Windows 10 / 11，Node.js 24 或更新。
 - 已安装并登录 Claude Code（npm 方式安装）。
-- 要操控的会话必须用 `claude --bg` 启动；普通方式启动的会话只能查看，不能输入。
+- 要操控的会话必须是后台会话（`claude --bg`）；普通方式启动的会话只能查看，可以在手机上一键转成后台会话。
 - 手机和电脑在同一个局域网。
 
 ## 快速开始
@@ -44,6 +45,7 @@ Claude Code 自带后台会话（`claude --bg`），终端关了也不会退出�
 ```powershell
 npm install
 npm run build -w web
+npm link        # 可选：安装 ccm 命令，在任意目录接入会话
 npm start
 ```
 
@@ -64,10 +66,11 @@ claude --bg --name 项目名
 ## 在电脑上看同一个会话
 
 ```powershell
-npm run attach -- 项目名
+ccm            # 在项目目录里运行：接入这个目录最新的后台会话
+ccm 项目名      # 或者指定短 id / 会话名
 ```
 
-Ctrl+] 或 Ctrl+Z 退出。不要直接运行 `claude attach`，那会把 cc-monitor 挤下线；真挤了，手机上点"接管回来"即可。
+`ccm` 由快速开始里的 `npm link` 安装；没装的话在 cc-monitor 目录里用 `npm run attach -- 项目名` 也一样。Ctrl+] 或 Ctrl+Z 退出。不要直接运行 `claude attach`，那会把 cc-monitor 挤下线；真挤了，手机上点"接管回来"即可。
 
 ## 安全
 
@@ -80,7 +83,7 @@ Ctrl+] 或 Ctrl+Z 退出。不要直接运行 `claude attach`，那会把 cc-mon
 ```
 手机 / 电脑浏览器 ──WebSocket──┐
                                ├── cc-monitor（Node）──node-pty──▶ claude attach <id> ──▶ 后台会话
-本地终端 npm run attach ───────┘        │
+本地终端 ccm ──────────────────┘        │
                                         ├── 尾随 ~/.claude/projects/<cwd>/<会话id>.jsonl → 聊天视图
                                         ├── 读取 ~/.claude/sessions/*.json → 会话列表与忙闲
                                         └── 接收 Claude Code hooks 的 HTTP 回调 → 手机提醒

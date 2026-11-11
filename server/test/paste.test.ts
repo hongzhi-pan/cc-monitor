@@ -19,6 +19,10 @@ describe('paste', () => {
     expect(keyToSequence('right')).toBe('\x1b[C');
     expect(keyToSequence('left')).toBe('\x1b[D');
     expect(keyToSequence('enter')).toBe('\r');
+    expect(keyToSequence('backspace')).toBe('\x7f');
+    expect(keyToSequence('pgup')).toBe('\x1b[5~');
+    expect(keyToSequence('ctrl-o')).toBe('\x0f');
+    expect(keyToSequence('ctrl-j')).toBe('\n');
   });
   it('rejects unknown keys and never exposes ctrl-z', () => {
     expect(keyToSequence('ctrl-z')).toBeUndefined();

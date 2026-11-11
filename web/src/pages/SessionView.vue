@@ -160,7 +160,7 @@ onUnmounted(() => {
       <ChatPane v-show="tab === 'chat'" :messages="messages" empty-hint="发出第一条 prompt 后这里会显示对话" />
       <div v-show="tab === 'term'" class="termwrap">
         <TerminalPane ref="term" :min-cols="MIN_COLS" @input="onTermInput" @resize="onTermResize" @active="onTermActive" />
-        <QuickKeys :disabled="!canInput" :paste-open="termComposer" @key="sendKey" @paste="termComposer = !termComposer" />
+        <QuickKeys :disabled="!canInput" :paste-open="termComposer" @key="sendKey" @text="onTermInput" @paste="termComposer = !termComposer" />
       </div>
     </section>
     <!-- 终端画面里 CC 自己有输入框，再常驻一个会重复，还占掉终端的行数；需要粘贴时由快捷键条的"粘贴"唤出 -->

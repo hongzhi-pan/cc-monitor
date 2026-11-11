@@ -11,6 +11,21 @@ export const KEY_SEQUENCES: Record<string, string> = {
   right: '\x1b[C',
   left: '\x1b[D',
   enter: '\r',
+  backspace: '\x7f',
+  delete: '\x1b[3~',
+  home: '\x1b[H',
+  end: '\x1b[F',
+  pgup: '\x1b[5~',
+  pgdn: '\x1b[6~',
+  'ctrl-a': '\x01',
+  'ctrl-e': '\x05',
+  'ctrl-j': '\n',
+  'ctrl-l': '\x0c',
+  'ctrl-o': '\x0f',
+  'ctrl-r': '\x12',
+  'ctrl-t': '\x14',
+  'ctrl-u': '\x15',
+  'ctrl-w': '\x17',
 };
 
 export function normalizeNewlines(text: string): string {

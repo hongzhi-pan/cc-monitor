@@ -199,6 +199,26 @@ describe('SessionView', () => {
     expect(w.find('textarea').attributes('disabled')).toBeDefined();
     expect(w.find('[data-test="stop"]').exists()).toBe(false);
   });
+  it('converts a read-only session to a background one and opens the resulting session', async () => {
+    const replace = vi.fn();
+    vi.stubGlobal('location', { ...window.location, replace });
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') { posts.push({ url, init }); return { ok: true, status: 200, json: async () => ({ ok: true, sessionId: 'sid-2' }) }; }
+      return { ok: true, json: async () => history };
+    }));
+    const w = mount(SessionView, mountOptions);
+    await flushPromises();
+    sockets[0].status!('open');
+    sockets[0].frame!({ t: 'state', attach: 'detached', status: 'idle', size: { cols: 80, rows: 24 }, unknownRecords: 0, attachable: false, reason: '只能查看' });
+    await flushPromises();
+    await w.find('[data-test="convert"]').trigger('click');
+    expect(posts.length).toBe(0);
+    await w.find('[data-test="convert"]').trigger('click');
+    await flushPromises();
+    expect(posts[0].url).toBe('/api/sessions/sid-1/convert');
+    expect(replace).toHaveBeenCalledWith('/s/sid-2');
+    vi.unstubAllGlobals();
+  });
   it('stops the session through the API after the second tap and tells the user', async () => {
     const w = mount(SessionView, mountOptions);
     await flushPromises();

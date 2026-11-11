@@ -141,6 +141,16 @@ cookie 是按浏览器记的：如果相机扫码后是在相机自带的内置�
 
 只读会话没有这个按钮，它不是后台会话，只能在它自己的终端里关闭。
 
+### 把普通窗口转成后台会话
+
+只读会话的状态栏右侧有 `[转为后台会话]`，同样要点两次确认。它会结束电脑上那个窗口里的 Claude Code（正在跑的一轮会被打断），再在同一目录用 `claude --bg --resume` 把这段对话在后台跑起来，页面随后自动打开转换后的会话，就可以输入了。
+
+电脑上想接着用，不需要记短 id：在项目目录里运行 `npm --prefix <cc-monitor 目录> run attach`，不带参数时会接入当前目录最新的后台会话。它经过监测器接入，和手机共用同一个画面，不会把手机踢下线。嫌长可以在 PowerShell 配置文件里加一个短命令：
+
+    function ccm { npm --prefix C:\path\to\cc-monitor run attach -- @args }
+
+之后在项目目录里敲 `ccm` 即可，按 Ctrl+] 退出。
+
 ## 6. 手机提醒
 
 把启动日志里打印的那段 hooks 配置合并进 `%USERPROFILE%\.claude\settings.json`。它长这样：
@@ -206,7 +216,7 @@ cookie 是按浏览器记的：如果相机扫码后是在相机自带的内置�
 | 启动时报找不到 claude.exe | 在配置文件里把 claudeExe 填成完整路径，npm 方式安装通常在 `%APPDATA%\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe` |
 | 启动时报端口被占用 | 换端口：改配置文件的 port，或用 `CCM_PORT` |
 | 列表里没有会话 | 会话是否真的在跑，用 `claude agents` 核对；会话退出后几秒内会从列表消失 |
-| 会话有"只读"标记，不能输入 | 它不是用 `--bg` 启动的。在它的目录里用 `claude --bg --resume 会话id` 重新跑起来即可接管 |
+| 会话有"只读"标记，不能输入 | 它不是用 `--bg` 启动的。点状态栏的 `[转为后台会话]`，或在它的目录里用 `claude --bg --resume 会话id` 重新跑起来 |
 | 状态栏显示"已被本地窗口接管" | 电脑上直接运行了 `claude attach`。点"接管回来"，以后电脑上用 `npm run attach -- 名字` |
 | 状态栏显示 attach 进程退出 | 会话可能已经停止，用 `claude agents` 核对；也可能守护进程异常，重新 `claude --bg` 一个会话 |
 | 聊天标签一直是空的 | 会话还没发过 prompt；或者对话记录格式变了（状态栏会有提示），切终端标签看 |

@@ -49,6 +49,21 @@ describe('StatusBar', () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(w2.find('[data-test="stop"]').text()).not.toContain('确认');
   });
+  it('offers to convert a read-only session, warns about the consequence, and needs a second tap', async () => {
+    const ro = { ...base, attach: 'detached', attachable: false, status: 'busy' } as const;
+    const w = mount(StatusBar, { props: { state: ro, socket: 'open', convertible: true } });
+    const btn = () => w.find('[data-test="convert"]');
+    expect(btn().text()).toContain('转为后台会话');
+    await btn().trigger('click');
+    expect(w.emitted('convert')).toBeUndefined();
+    expect(btn().text()).toContain('打断');
+    await btn().trigger('click');
+    expect(w.emitted('convert')).toHaveLength(1);
+    await w.setProps({ converting: true });
+    expect(btn().text()).toContain('正在转换');
+    expect(btn().attributes('disabled')).toBeDefined();
+    expect(mount(StatusBar, { props: { state: ro, socket: 'open' } }).find('[data-test="convert"]').exists()).toBe(false);
+  });
   it('hides the stop button when the session cannot be stopped', () => {
     const w = mount(StatusBar, { props: { state: { ...base, attach: 'attached' }, socket: 'open', stoppable: false } });
     expect(w.find('[data-test="stop"]').exists()).toBe(false);

@@ -3,8 +3,8 @@ import { computed, onUnmounted, ref } from 'vue';
 import type { StateFrame } from '../lib/protocol';
 import type { SocketStatus } from '../lib/ws';
 
-const props = defineProps<{ state: StateFrame | null; socket: SocketStatus; stoppable?: boolean }>();
-const emit = defineEmits<{ reattach: []; stop: [] }>();
+const props = defineProps<{ state: StateFrame | null; socket: SocketStatus; stoppable?: boolean; convertible?: boolean; converting?: boolean }>();
+const emit = defineEmits<{ reattach: []; stop: []; convert: [] }>();
 
 const attachText = computed(() => {
   const s = props.state;
@@ -36,7 +36,28 @@ function onStopClick() {
   confirmTimer = null;
   emit('stop');
 }
-onUnmounted(() => { if (confirmTimer) clearTimeout(confirmTimer); });
+// 转为后台会话同样点两次：它会结束电脑上那个窗口里的 Claude Code
+const confirmingConvert = ref(false);
+let convertTimer: ReturnType<typeof setTimeout> | null = null;
+function onConvertClick() {
+  if (props.converting) return;
+  if (!confirmingConvert.value) {
+    confirmingConvert.value = true;
+    if (convertTimer) clearTimeout(convertTimer);
+    convertTimer = setTimeout(() => { confirmingConvert.value = false; }, 5000);
+    return;
+  }
+  confirmingConvert.value = false;
+  if (convertTimer) clearTimeout(convertTimer);
+  convertTimer = null;
+  emit('convert');
+}
+const convertLabel = computed(() => {
+  if (props.converting) return '正在转换…';
+  if (!confirmingConvert.value) return '转为后台会话';
+  return props.state?.status === 'busy' ? '正在忙，会打断这一轮，再点一次确认' : '会关掉电脑上的窗口，再点一次确认';
+});
+onUnmounted(() => { if (confirmTimer) clearTimeout(confirmTimer); if (convertTimer) clearTimeout(convertTimer); });
 </script>
 
 <template>
@@ -48,6 +69,7 @@ onUnmounted(() => { if (confirmTimer) clearTimeout(confirmTimer); });
     <template v-if="state"><span class="sep">·</span><span class="size">{{ state.size.cols }}×{{ state.size.rows }}</span></template>
     <button v-if="canReattach" data-test="reattach" class="key" @click="emit('reattach')">接管回来</button>
     <button v-if="stoppable" data-test="stop" class="key stop" :class="{ confirming }" @click="onStopClick">{{ confirming ? '再点一次确认停止' : '停止会话' }}</button>
+    <button v-if="convertible" data-test="convert" class="key stop" :class="{ confirming: confirmingConvert }" :disabled="converting" @click="onConvertClick">{{ convertLabel }}</button>
     <span class="warn" v-if="formatWarning">⚠ 转录格式可能已变化，聊天视图可能不完整</span>
   </div>
 </template>

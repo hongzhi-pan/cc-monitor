@@ -9,6 +9,7 @@ import { AttachManager, nodePtyFactory } from './attach.js';
 import { TranscriptHub, attachWebSocketServer, lanAddresses } from './ws.js';
 import { hooksSettingsSnippet } from './hooks.js';
 import { createApp } from './app.js';
+import { makeConvertDeps } from './control.js';
 
 const configPath = defaultConfigPath();
 const cfg = loadOrCreateConfig(configPath);
@@ -25,7 +26,7 @@ const transcripts = new TranscriptHub(configDir);
 const hookBus = new EventEmitter();
 
 const webDist = fileURLToPath(new URL('../../web/dist', import.meta.url));
-const app = createApp({ token: cfg.token, registry, attach, transcripts, hookBus, webDist });
+const app = createApp({ token: cfg.token, registry, attach, transcripts, hookBus, webDist, convert: makeConvertDeps(cfg.claudeExe) });
 
 const server = createServer(app);
 attachWebSocketServer(server, { token: cfg.token, registry, attach, transcripts, hookBus });

@@ -3,16 +3,14 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import WebSocket from 'ws';
 
-interface SessionInfo { sessionId: string; name: string; jobId?: string; attachable: boolean }
+interface SessionInfo { sessionId: string; name: string; jobId?: string; attachable: boolean; cwd: string; startedAt: number }
 type ServerFrame =
   | { t: 'replay'; d: string } | { t: 'out'; d: string } | { t: 'error'; message: string }
   | { t: 'state'; attach: string; reason?: string } | { t: string };
 
+// 不带参数时接入"当前目录"的后台会话，不用记短 id。经 npm 运行时真正的当前目录在 INIT_CWD 里
 const target = process.argv[2];
-if (!target) {
-  console.error('用法: npm run attach -- <短id或会话名>');
-  process.exit(2);
-}
+const here = (process.env.INIT_CWD || process.cwd()).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
 
 const localAppData = process.env.LOCALAPPDATA && process.env.LOCALAPPDATA.length > 0
   ? process.env.LOCALAPPDATA
@@ -38,10 +36,18 @@ if (!res.ok) {
   process.exit(1);
 }
 const sessions = (await res.json()) as SessionInfo[];
-const info = sessions.find((s) => s.attachable && (s.jobId === target || s.name === target));
+const bg = sessions.filter((s) => s.attachable);
+const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+let info: SessionInfo | undefined;
+if (target) {
+  info = bg.find((s) => s.jobId === target || s.name === target);
+} else {
+  // 这个目录里最新的后台会话；目录里没有而全机只有一个后台会话时，就是它
+  info = bg.filter((s) => norm(s.cwd) === here).sort((a, b) => b.startedAt - a.startedAt)[0] ?? (bg.length === 1 ? bg[0] : undefined);
+}
 if (!info) {
-  const available = sessions.filter((s) => s.attachable).map((s) => `${s.jobId}  ${s.name}`).join('\n  ');
-  console.error(`没有名为 ${target} 的后台会话。当前可用：\n  ${available || '（无）'}`);
+  const available = bg.map((s) => `${s.jobId}  ${s.name}  ${s.cwd}`).join('\n  ');
+  console.error(`${target ? `没有名为 ${target} 的后台会话` : '当前目录里没有后台会话'}。当前可用（可在后面加短 id 或会话名指定）：\n  ${available || '（无）'}`);
   process.exit(1);
 }
 

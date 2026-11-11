@@ -36,6 +36,8 @@ function syncViewport() {
 }
 
 const canInput = computed(() => !!state.value && state.value.attachable && state.value.attach === 'attached' && socketStatus.value === 'open');
+const converting = ref(false);
+const convertible = computed(() => !!state.value && !state.value.attachable);
 const stoppable = computed(() => !!state.value && state.value.attachable && !stopped.value);
 
 function showBanner(text: string, autoHideMs = 0) {
@@ -98,6 +100,24 @@ async function stopSession() {
   }
 }
 
+// 只读会话转成后台会话：服务器结束电脑上的窗口并在后台重新跑起来，成功后整页打开新会话
+async function convertSession() {
+  converting.value = true;
+  showBanner('正在转为后台会话，大约需要几秒…');
+  try {
+    const r = await fetch(`/api/sessions/${encodeURIComponent(props.sessionId)}/convert`, { method: 'POST' });
+    const body = (await r.json().catch(() => ({}))) as { ok?: boolean; output?: string; sessionId?: string };
+    if (r.ok && body.ok) {
+      window.location.replace(`/s/${encodeURIComponent(body.sessionId ?? props.sessionId)}`);
+      return;
+    }
+    showBanner(`转换失败：${body.output || `HTTP ${r.status}`}`);
+  } catch (e) {
+    showBanner(`转换失败：${(e as Error).message}`);
+  }
+  converting.value = false;
+}
+
 async function switchTab(next: 'chat' | 'term') {
   tab.value = next;
   if (next === 'term') {
@@ -153,7 +173,7 @@ onUnmounted(() => {
         <button v-if="!state || state.attachable" data-test="tab-term" class="key" :class="{ on: tab === 'term' }" @click="switchTab('term')">终端</button>
       </nav>
     </header>
-    <StatusBar :state="state" :socket="socketStatus" :stoppable="stoppable" @reattach="reattach" @stop="stopSession" />
+    <StatusBar :state="state" :socket="socketStatus" :stoppable="stoppable" :convertible="convertible" :converting="converting" @reattach="reattach" @stop="stopSession" @convert="convertSession" />
     <p v-if="errorText" class="error">✗ {{ errorText }}</p>
     <p v-if="banner" class="banner" @click="banner = ''">⚠ {{ banner }}</p>
     <section class="body">

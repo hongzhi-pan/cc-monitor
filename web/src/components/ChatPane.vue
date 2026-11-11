@@ -68,7 +68,8 @@ defineExpose({ stick });
 </template>
 
 <style scoped>
-.chat { height: 100%; overflow-y: auto; padding: 10px 14px 16px; }
+/* 只允许上下滚动：长路径、长网址这类不带空格的内容强制折行，宽表格和代码块在各自的框里横向滑 */
+.chat { height: 100%; overflow-x: hidden; overflow-y: auto; padding: 10px 14px 16px; overflow-wrap: anywhere; }
 .msg { animation: rise 140ms ease-out; }
 @keyframes rise { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
 .line, summary { display: flex; gap: 8px; align-items: flex-start; }
@@ -79,7 +80,7 @@ summary::-webkit-details-marker { display: none; }
 .body { flex: 1; min-width: 0; }
 .dim { color: var(--dim); }
 .italic { font-style: italic; }
-.label { color: var(--fg); }
+.label { color: var(--fg); flex: 1; min-width: 0; }
 .label::first-letter { font-weight: 600; }
 .msg.user.text { margin: 14px 0 6px; }
 .msg.user.text .prompt { padding: 4px 8px; margin-left: -8px; background: var(--bg-raised); border-left: 2px solid var(--line); }

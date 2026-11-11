@@ -101,6 +101,33 @@ function onTouchEnd(e: TouchEvent) {
   inertiaRaf = requestAnimationFrame(tick);
 }
 
+// 手机输入法的剪贴板粘贴不走键盘事件，也不一定触发浏览器的 paste 事件，xterm 可能接不住。
+// 兜底：文字进了 xterm 的隐藏输入框、稍等片刻它却什么都没发出去，就由这里转发
+const IME_INPUT_TYPES = new Set(['insertText', 'insertFromPaste', 'insertReplacementText']);
+let dataSeq = 0;
+function watchImeInput(ta: HTMLTextAreaElement | undefined) {
+  if (!ta) return;
+  let seqBefore = -1;
+  let pasteAt = -Infinity;
+  ta.addEventListener('paste', (e) => { pasteAt = e.timeStamp; });
+  ta.addEventListener('beforeinput', () => { seqBefore = dataSeq; });
+  ta.addEventListener('input', (ev) => {
+    const e = ev as InputEvent;
+    const seq = seqBefore;
+    seqBefore = -1;
+    if (seq < 0 || e.isComposing || !IME_INPUT_TYPES.has(e.inputType)) return;
+    // 真正的 paste 事件 xterm 自己会处理
+    if (e.inputType === 'insertFromPaste' && e.timeStamp - pasteAt < 500) return;
+    const text = e.data ?? (e.inputType === 'insertFromPaste' ? ta.value : '');
+    if (!text) return;
+    setTimeout(() => {
+      if (dataSeq !== seq) return; // xterm 已经发过了
+      ta.value = '';
+      emit('input', text);
+    }, 60);
+  });
+}
+
 onMounted(() => {
   term = new Terminal({
     fontSize: BASE_FONT,
@@ -118,7 +145,8 @@ onMounted(() => {
   fit = new FitAddon();
   term.loadAddon(fit);
   term.open(host.value!);
-  term.onData((d) => emit('input', d));
+  term.onData((d) => { dataSeq += 1; emit('input', d); });
+  watchImeInput(term.textarea);
   term.textarea?.addEventListener('focus', () => emit('active'));
   if (typeof ResizeObserver !== 'undefined') {
     observer = new ResizeObserver(() => refit());

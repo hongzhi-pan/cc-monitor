@@ -74,6 +74,39 @@ describe('TerminalPane', () => {
     expect(deltas[deltas.length - 1]).toBeLessThan(0);
   });
 
+  it('forwards IME clipboard text that xterm did not pick up, without duplicating what it did', async () => {
+    vi.useFakeTimers();
+    try {
+      const w = mount(TerminalPane, { props: { minCols: 80 } });
+      const t = terms.at(-1)!;
+      const fire = (inputType: string, data: string | null) => {
+        t.textarea.dispatchEvent(new InputEvent('beforeinput', { inputType, data }));
+        t.textarea.dispatchEvent(new InputEvent('input', { inputType, data }));
+      };
+      fire('insertText', '粘贴的一段话'); // xterm 没反应：兜底转发
+      vi.advanceTimersByTime(100);
+      expect(w.emitted('input')).toEqual([['粘贴的一段话']]);
+
+      t.textarea.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data: 'a' }));
+      t.dataCb!('a'); // xterm 自己发了：不重复
+      t.textarea.dispatchEvent(new InputEvent('input', { inputType: 'insertText', data: 'a' }));
+      vi.advanceTimersByTime(100);
+      expect(w.emitted('input')).toEqual([['粘贴的一段话'], ['a']]);
+
+      t.textarea.value = '剪贴板内容'; // 没有 paste 事件的 insertFromPaste：文字只在输入框里
+      fire('insertFromPaste', null);
+      vi.advanceTimersByTime(100);
+      expect(w.emitted('input')?.at(-1)).toEqual(['剪贴板内容']);
+      expect(t.textarea.value).toBe('');
+
+      fire('insertCompositionText', '拼音'); // 拼音组合过程不转发
+      vi.advanceTimersByTime(100);
+      expect(w.emitted('input')).toHaveLength(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps scrolling with inertia after a fast flick, and a new touch stops it', async () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
     try {

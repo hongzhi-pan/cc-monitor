@@ -150,7 +150,7 @@ export function attachWebSocketServer(server: HttpServer, deps: WsDeps): WebSock
       ws.close(4000);
       return;
     }
-    void handleSession(ws, sid, deps);
+    void handleSession(ws, sid, deps, url.searchParams.get('client') === 'local');
   });
 
   return wss;
@@ -163,7 +163,7 @@ function handleList(ws: WebSocket, deps: WsDeps): void {
   ws.on('close', () => deps.registry.off('change', push));
 }
 
-async function handleSession(ws: WebSocket, sid: string, deps: WsDeps): Promise<void> {
+async function handleSession(ws: WebSocket, sid: string, deps: WsDeps, local = false): Promise<void> {
   const initial = deps.registry.current().find((s) => s.sessionId === sid);
   if (!initial) {
     send(ws, { t: 'error', message: `找不到会话 ${sid}，它可能已经退出` });
@@ -208,10 +208,12 @@ async function handleSession(ws: WebSocket, sid: string, deps: WsDeps): Promise<
   const pending: ClientFrame[] = [];
   const handle = (frame: ClientFrame) => {
     if (!session) return;
+    // 电脑端接着的时候，网页端发来的输入一律丢弃（页面上也已置灰，这里是兜底）
+    const locked = session.isLocked(clientId);
     switch (frame.t) {
-      case 'in': session.writeInput(decodeB64(frame.d)); break;
-      case 'paste': void session.paste(frame.text); break;
-      case 'key': session.sendKey(frame.name); break;
+      case 'in': if (!locked) session.writeInput(decodeB64(frame.d)); break;
+      case 'paste': if (!locked) void session.paste(frame.text); break;
+      case 'key': if (!locked) session.sendKey(frame.name); break;
       case 'resize': session.resizeClient(clientId, frame.cols, frame.rows); break;
       case 'active': session.setActive(clientId); break;
       case 'attach': session.reattach(); break;
@@ -248,7 +250,7 @@ async function handleSession(ws: WebSocket, sid: string, deps: WsDeps): Promise<
       unknownRecords: deps.transcripts.stats(sid).unknown,
       attachable: true,
     }));
-    const client: AttachClient = { id: clientId, cols: 80, rows: 24, send: (f) => send(ws, f) };
+    const client: AttachClient = { id: clientId, cols: 80, rows: 24, local, send: (f) => send(ws, f) };
     session.addClient(client);
   } else {
     send(ws, readOnlyState(info, deps));

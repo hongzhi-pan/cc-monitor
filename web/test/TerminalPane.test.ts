@@ -17,6 +17,7 @@ const { terms, FakeTerm } = vi.hoisted(() => {
     open(el: HTMLElement) { el.appendChild(this.element); this.element.appendChild(this.textarea); }
     write(d: string) { this.written.push(d); }
     reset() { this.resetCount += 1; }
+    resize(c: number, r: number) { this.cols = c; this.rows = r; }
     onData(cb: (d: string) => void) { this.dataCb = cb; }
     dispose() {}
   }
@@ -158,6 +159,19 @@ describe('TerminalPane', () => {
     (w.vm as unknown as { refit: () => void }).refit();
     expect(t.options.fontSize).toBe(13);
     expect(w.emitted('resize')?.at(-1)).toEqual([60, 20]);
+  });
+
+  it('mirrors the computer size with a smaller font and reports nothing while locked, then fits again when released', async () => {
+    layout.fitCols = 48;
+    layout.hidden = false;
+    const w = mount(TerminalPane, { props: { minCols: 40, lockSize: { cols: 120, rows: 20 } } });
+    const t = terms.at(-1)!;
+    expect([t.cols, t.rows]).toEqual([120, 20]);
+    expect(t.options.fontSize).toBe(5); // 13 × 48/120
+    expect(w.emitted('resize')).toBeUndefined();
+    await w.setProps({ lockSize: null });
+    expect(t.options.fontSize).toBe(13);
+    expect(w.emitted('resize')?.at(-1)).toEqual([48, 20]);
   });
 
   it('does not fit or report a size while hidden', async () => {

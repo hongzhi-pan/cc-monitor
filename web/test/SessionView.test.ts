@@ -26,7 +26,7 @@ let termRefits = 0;
 vi.mock('../src/components/TerminalPane.vue', () => ({
   default: defineComponent({
     name: 'TerminalPane',
-    props: { minCols: Number },
+    props: { minCols: Number, lockSize: { type: Object, default: null } },
     emits: ['input', 'resize', 'active'],
     setup(_p, { expose }) {
       expose({ write: (d: string) => termWrites.push(d), clear: () => { termClears += 1; }, refit: () => { termRefits += 1; } });
@@ -175,6 +175,26 @@ describe('SessionView', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+  it('becomes view-only while the computer is attached, and usable again when it leaves', async () => {
+    const w = mount(SessionView, mountOptions);
+    await flushPromises();
+    sockets[0].status!('open');
+    sockets[0].frame!(attached);
+    await flushPromises();
+    expect(w.find('textarea').attributes('disabled')).toBeUndefined();
+    sockets[0].frame!({ ...attached, localAttached: true, size: { cols: 120, rows: 40 } });
+    await flushPromises();
+    expect(w.find('textarea').attributes('disabled')).toBeDefined();
+    expect(w.find('[data-test="locked"]').exists()).toBe(true);
+    expect(w.findComponent({ name: 'TerminalPane' }).props('lockSize')).toEqual({ cols: 120, rows: 40 });
+    w.findComponent({ name: 'TerminalPane' }).vm.$emit('input', 'x');
+    expect(sockets[0].sent.some((f) => f.t === 'in')).toBe(false);
+    sockets[0].frame!(attached);
+    await flushPromises();
+    expect(w.find('textarea').attributes('disabled')).toBeUndefined();
+    expect(w.find('[data-test="locked"]').exists()).toBe(false);
+    expect(w.findComponent({ name: 'TerminalPane' }).props('lockSize')).toBeNull();
   });
   it('clears before replay, writes output, and sends attach on reattach', async () => {
     const w = mount(SessionView, mountOptions);

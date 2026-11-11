@@ -37,6 +37,8 @@ export interface StateFrame {
   status: SessionStatus;
   size: { cols: number; rows: number };
   unknownRecords: number;
+  /** 电脑端（ccm）正接着这个会话：网页端此时只能看，不能输入，也不参与决定画面尺寸 */
+  localAttached?: boolean;
   attachable: boolean;
 }
 

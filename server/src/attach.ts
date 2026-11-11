@@ -20,6 +20,8 @@ export interface AttachClient {
   id: string;
   cols: number;
   rows: number;
+  /** 电脑上的 ccm 客户端。有它在时，网页端只读，画面尺寸只跟它走 */
+  local?: boolean;
   send(frame: ServerFrame): void;
 }
 
@@ -108,8 +110,19 @@ export class AttachSession extends EventEmitter {
     return this.clients.size;
   }
 
+  hasLocal(): boolean {
+    for (const c of this.clients.values()) if (c.local) return true;
+    return false;
+  }
+
+  /** 这个客户端此刻是否只读：它是网页端，而且有电脑端接着 */
+  isLocked(id: string): boolean {
+    const c = this.clients.get(id);
+    return !!c && !c.local && this.hasLocal();
+  }
+
   stateFrame(): StateFrame {
-    return { t: 'state', attach: this.state, reason: this.reason, size: { ...this.size }, ...this.extras() };
+    return { t: 'state', attach: this.state, reason: this.reason, size: { ...this.size }, ...this.extras(), localAttached: this.hasLocal() };
   }
 
   broadcastState(): void {
@@ -125,36 +138,42 @@ export class AttachSession extends EventEmitter {
       this.idleTimer = null;
     }
     // 新客户端不抢尺寸：只有没有跟随对象时才接管，否则等它自己发 active/resize
-    if (this.activeId === null || !this.clients.has(this.activeId)) this.activeId = c.id;
+    // 电脑端一接入就接管尺寸
+    if (c.local || this.activeId === null || !this.clients.has(this.activeId)) this.activeId = c.id;
     if (this.state === 'attached') {
       c.send({ t: 'replay', d: encodeB64(this.buffer.toString()) });
       this.scheduleResize();
       this.scheduleNudge();
-      c.send(this.stateFrame());
+      if (c.local) this.broadcastState(); // 网页端要知道自己变成只读了
+      else c.send(this.stateFrame());
       return;
     }
     if (this.state === 'taken_over') {
       // 用户在本地明确接管了；新连接（包括手机自动重连）只报告状态，由用户点"接管回来"再抢回
-      c.send(this.stateFrame());
+      if (c.local) this.broadcastState();
+      else c.send(this.stateFrame());
       return;
     }
     this.spawn();
   }
 
   removeClient(id: string): void {
+    const wasLocal = !!this.clients.get(id)?.local;
     this.clients.delete(id);
     if (this.activeId === id) {
-      const rest = [...this.clients.keys()];
-      this.activeId = rest.length ? rest[rest.length - 1] : null;
+      const rest = [...this.clients.values()];
+      const next = [...rest].reverse().find((c) => c.local) ?? rest[rest.length - 1];
+      this.activeId = next ? next.id : null;
       if (this.activeId) this.scheduleResize();
     }
+    if (wasLocal) this.broadcastState(); // 电脑端走了，网页端恢复可输入
     if (this.clients.size === 0 && this.state === 'attached') {
       this.idleTimer = setTimeout(() => this.detach(), this.idleDetachMs);
     }
   }
 
   setActive(id: string): void {
-    if (!this.clients.has(id)) return;
+    if (!this.clients.has(id) || this.isLocked(id)) return;
     this.activeId = id;
     this.scheduleResize();
   }

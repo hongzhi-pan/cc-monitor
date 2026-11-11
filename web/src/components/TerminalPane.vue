@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 
-const props = defineProps<{ minCols: number }>();
+// lockSize：电脑端接着会话时，画面尺寸由电脑决定。这里照它的行列数显示，缩小字号把整幅画面放进屏幕，不上报自己的尺寸
+const props = defineProps<{ minCols: number; lockSize?: { cols: number; rows: number } | null }>();
 const emit = defineEmits<{ input: [data: string]; resize: [cols: number, rows: number]; active: [] }>();
 
 const host = ref<HTMLElement | null>(null);
@@ -23,12 +24,23 @@ function clear() {
 
 const BASE_FONT = 13;
 const MIN_FONT = 9;
+const LOCKED_MIN_FONT = 4;
 
 function refit() {
   if (!term || !fit) return;
   // 标签页隐藏时量不出尺寸：这时既不排版也不上报，否则会把 80×24 的默认值报给服务器
   const dims = fit.proposeDimensions();
   if (!dims || !Number.isFinite(dims.cols) || !Number.isFinite(dims.rows)) return;
+  if (props.lockSize) {
+    if (term.options.fontSize !== BASE_FONT) term.options.fontSize = BASE_FONT;
+    const base = fit.proposeDimensions();
+    if (!base) return;
+    const scale = Math.min(1, base.cols / props.lockSize.cols, base.rows / props.lockSize.rows);
+    term.options.fontSize = Math.max(LOCKED_MIN_FONT, Math.floor(BASE_FONT * scale));
+    term.resize(props.lockSize.cols, props.lockSize.rows);
+    narrow.value = false;
+    return;
+  }
   if (term.options.fontSize !== BASE_FONT) term.options.fontSize = BASE_FONT;
   fit.fit();
   if (term.cols < props.minCols) {
@@ -154,6 +166,8 @@ onMounted(() => {
   }
   refit();
 });
+
+watch(() => [props.lockSize?.cols, props.lockSize?.rows], () => refit());
 
 onBeforeUnmount(() => {
   stopInertia();

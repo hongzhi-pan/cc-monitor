@@ -35,7 +35,9 @@ function syncViewport() {
   viewportStyle.value = { position: 'fixed', left: '0', right: '0', top: `${v.offsetTop}px`, height: `${v.height}px` };
 }
 
-const canInput = computed(() => !!state.value && state.value.attachable && state.value.attach === 'attached' && socketStatus.value === 'open');
+// 电脑上用 ccm 接着的时候，这里只能看：两边同时操作会互相打乱输入和排版
+const locked = computed(() => !!state.value?.localAttached);
+const canInput = computed(() => !!state.value && state.value.attachable && state.value.attach === 'attached' && socketStatus.value === 'open' && !locked.value);
 const converting = ref(false);
 const convertible = computed(() => !!state.value && !state.value.attachable);
 const stoppable = computed(() => !!state.value && state.value.attachable && !stopped.value);
@@ -80,7 +82,7 @@ function send(text: string) {
   }
 }
 function sendKey(name: string) { socket?.send({ t: 'key', name }); }
-function onTermInput(d: string) { socket?.send({ t: 'in', d: encodeB64(d) }); }
+function onTermInput(d: string) { if (!locked.value) socket?.send({ t: 'in', d: encodeB64(d) }); }
 function onTermResize(cols: number, rows: number) { socket?.send({ t: 'resize', cols, rows }); }
 function onTermActive() { socket?.send({ t: 'active' }); }
 function reattach() { socket?.send({ t: 'attach' }); }
@@ -179,7 +181,7 @@ onUnmounted(() => {
     <section class="body">
       <ChatPane v-show="tab === 'chat'" :messages="messages" empty-hint="发出第一条 prompt 后这里会显示对话" />
       <div v-show="tab === 'term'" class="termwrap">
-        <TerminalPane ref="term" :min-cols="MIN_COLS" @input="onTermInput" @resize="onTermResize" @active="onTermActive" />
+        <TerminalPane ref="term" :min-cols="MIN_COLS" :lock-size="locked && state ? state.size : null" @input="onTermInput" @resize="onTermResize" @active="onTermActive" />
         <QuickKeys :disabled="!canInput" :paste-open="termComposer" @key="sendKey" @text="onTermInput" @paste="termComposer = !termComposer" />
       </div>
     </section>

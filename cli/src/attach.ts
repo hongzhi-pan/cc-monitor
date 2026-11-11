@@ -51,7 +51,7 @@ if (!info) {
   process.exit(1);
 }
 
-const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?sid=${encodeURIComponent(info.sessionId)}`, { headers });
+const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?sid=${encodeURIComponent(info.sessionId)}&client=local`, { headers });
 
 function sendFrame(frame: Record<string, unknown>): void {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(frame));

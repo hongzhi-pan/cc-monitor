@@ -141,6 +141,30 @@ describe('AttachSession', () => {
     expect(decodeB64((b.frames.find((f) => f.t === 'replay') as { d: string }).d)).toBe('narrow redraw');
   });
 
+  it('makes web clients read-only and follows the computer size while a local client is attached', async () => {
+    const { s, ptys } = harness();
+    const phone = client('phone', 45, 30);
+    s.addClient(phone.c);
+    expect(s.stateFrame().localAttached).toBe(false);
+    const pc = client('pc', 120, 40);
+    s.addClient({ ...pc.c, local: true });
+    await vi.advanceTimersByTimeAsync(400);
+    expect(s.size).toEqual({ cols: 120, rows: 40 });
+    expect(states(phone.frames).at(-1)!.localAttached).toBe(true);
+    expect(s.isLocked('phone')).toBe(true);
+    expect(s.isLocked('pc')).toBe(false);
+    s.setActive('phone'); // 手机点了终端，也抢不回尺寸
+    s.resizeClient('phone', 50, 20);
+    await vi.advanceTimersByTimeAsync(400);
+    expect(s.size).toEqual({ cols: 120, rows: 40 });
+    s.removeClient('pc');
+    await vi.advanceTimersByTimeAsync(400);
+    expect(states(phone.frames).at(-1)!.localAttached).toBe(false);
+    expect(s.isLocked('phone')).toBe(false);
+    expect(s.size).toEqual({ cols: 80, rows: 24 }); // 回到手机的尺寸（按测试里的下限钳位）
+    expect(ptys[0].resizes.at(-1)).toEqual([80, 24]);
+  });
+
   it('a joining client does not take over the size until it asks', async () => {
     const { s, ptys } = harness();
     const a = client('a', 120, 40);

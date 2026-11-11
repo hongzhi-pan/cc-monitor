@@ -67,6 +67,7 @@ onUnmounted(() => { if (confirmTimer) clearTimeout(confirmTimer); if (convertTim
     <span class="attach" :class="state?.attach">{{ attachText }}</span>
     <template v-if="statusText"><span class="sep">·</span><span class="status" :class="state?.status">{{ statusText }}</span></template>
     <template v-if="state"><span class="sep">·</span><span class="size">{{ state.size.cols }}×{{ state.size.rows }}</span></template>
+    <span v-if="state?.localAttached" class="locked" data-test="locked">电脑正在操作，这里只能看</span>
     <button v-if="canReattach" data-test="reattach" class="key" @click="emit('reattach')">接管回来</button>
     <button v-if="stoppable" data-test="stop" class="key stop" :class="{ confirming }" @click="onStopClick">{{ confirming ? '再点一次确认停止' : '停止会话' }}</button>
     <button v-if="convertible" data-test="convert" class="key stop" :class="{ confirming: confirmingConvert }" :disabled="converting" @click="onConvertClick">{{ convertLabel }}</button>
@@ -78,6 +79,7 @@ onUnmounted(() => { if (confirmTimer) clearTimeout(confirmTimer); if (convertTim
 .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 12px; font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--line); background: var(--bg); }
 .chev { color: var(--yellow); }
 .net { color: var(--red); }
+.locked { color: var(--yellow); }
 .attach.attached { color: var(--green); }
 .attach.attaching { color: var(--dim); }
 .attach.taken_over, .attach.error { color: var(--yellow); }

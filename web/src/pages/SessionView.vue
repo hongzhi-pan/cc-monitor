@@ -26,6 +26,15 @@ let socket: ReconnectingSocket | null = null;
 let bannerTimer: ReturnType<typeof setTimeout> | null = null;
 let everOpened = false;
 
+// 键盘弹出时浏览器未必会缩小页面（iOS 只缩"可视区域"并把页面往上推），终端底部的输入行就被键盘盖住。
+// 让页面始终贴合可视区域：键盘一出来页面就变矮，终端随之减少行数、由 CC 按新高度重画
+const viewportStyle = ref<Record<string, string>>({});
+function syncViewport() {
+  const v = window.visualViewport;
+  if (!v) return;
+  viewportStyle.value = { position: 'fixed', left: '0', right: '0', top: `${v.offsetTop}px`, height: `${v.height}px` };
+}
+
 const canInput = computed(() => !!state.value && state.value.attachable && state.value.attach === 'attached' && socketStatus.value === 'open');
 const stoppable = computed(() => !!state.value && state.value.attachable && !stopped.value);
 
@@ -99,6 +108,9 @@ async function switchTab(next: 'chat' | 'term') {
 }
 
 onMounted(() => {
+  syncViewport();
+  window.visualViewport?.addEventListener('resize', syncViewport);
+  window.visualViewport?.addEventListener('scroll', syncViewport);
   void loadHistory();
   socket = new ReconnectingSocket(wsUrl(`/ws?sid=${encodeURIComponent(props.sessionId)}`));
   socket.onStatus((s) => {
@@ -125,13 +137,15 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.visualViewport?.removeEventListener('resize', syncViewport);
+  window.visualViewport?.removeEventListener('scroll', syncViewport);
   socket?.close();
   if (bannerTimer) clearTimeout(bannerTimer);
 });
 </script>
 
 <template>
-  <div class="page">
+  <div class="page" :style="viewportStyle">
     <header>
       <router-link to="/" class="back">← 会话</router-link>
       <nav class="tabs">

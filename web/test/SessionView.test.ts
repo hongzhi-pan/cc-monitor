@@ -158,6 +158,24 @@ describe('SessionView', () => {
     await w.find('[data-test="tab-chat"]').trigger('click');
     expect(composerShown()).toBe(true);
   });
+  it('shrinks the page to the visible area when the on-screen keyboard opens', async () => {
+    const vv = Object.assign(new EventTarget(), { height: 800, offsetTop: 0 });
+    vi.stubGlobal('visualViewport', vv);
+    try {
+      const w = mount(SessionView, mountOptions);
+      await flushPromises();
+      const page = w.find('.page').element as HTMLElement;
+      expect(page.style.height).toBe('800px');
+      vv.height = 420; // 键盘弹出
+      vv.offsetTop = 30;
+      vv.dispatchEvent(new Event('resize'));
+      await flushPromises();
+      expect(page.style.height).toBe('420px');
+      expect(page.style.top).toBe('30px');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it('clears before replay, writes output, and sends attach on reattach', async () => {
     const w = mount(SessionView, mountOptions);
     await flushPromises();

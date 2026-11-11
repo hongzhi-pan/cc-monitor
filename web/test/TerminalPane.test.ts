@@ -6,6 +6,7 @@ const { terms, FakeTerm } = vi.hoisted(() => {
   class FakeTerm {
     cols = 100;
     rows = 30;
+    options = { fontSize: 13 };
     written: string[] = [];
     resetCount = 0;
     dataCb: ((d: string) => void) | null = null;
@@ -23,7 +24,23 @@ const { terms, FakeTerm } = vi.hoisted(() => {
   return { terms, FakeTerm };
 });
 vi.mock('@xterm/xterm', () => ({ Terminal: FakeTerm }));
-vi.mock('@xterm/addon-fit', () => ({ FitAddon: class { fit() { const t = terms.at(-1)!; t.cols = 40; t.rows = 20; } } }));
+// 模拟真实字号下每行 fitCols 列；字号缩小后列数按比例变多。hidden 模拟标签页隐藏时量不出尺寸
+const layout = vi.hoisted(() => ({ fitCols: 40, hidden: false }));
+vi.mock('@xterm/addon-fit', () => ({
+  FitAddon: class {
+    proposeDimensions() {
+      if (layout.hidden) return undefined;
+      return { cols: Math.floor((layout.fitCols * 13) / terms.at(-1)!.options.fontSize), rows: 20 };
+    }
+    fit() {
+      const d = this.proposeDimensions();
+      if (!d) return;
+      const t = terms.at(-1)!;
+      t.cols = d.cols;
+      t.rows = d.rows;
+    }
+  },
+}));
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}));
 
 import TerminalPane from '../src/components/TerminalPane.vue';
@@ -57,11 +74,38 @@ describe('TerminalPane', () => {
     expect(deltas[deltas.length - 1]).toBeLessThan(0);
   });
 
-  it('emits resize after fitting and warns when narrower than minCols', async () => {
-    const w = mount(TerminalPane, { props: { minCols: 80 } });
+  it('shrinks the font until minCols fit, and warns only when even the smallest font is too wide', async () => {
+    layout.fitCols = 36;
+    layout.hidden = false;
+    const w = mount(TerminalPane, { props: { minCols: 40 } });
     (w.vm as unknown as { refit: () => void }).refit();
     await w.vm.$nextTick();
-    expect(w.emitted('resize')?.at(-1)).toEqual([40, 20]);
-    expect(w.text()).toContain('80');
+    const t = terms.at(-1)!;
+    expect(t.options.fontSize).toBe(11);
+    expect(w.emitted('resize')?.at(-1)).toEqual([42, 20]);
+    expect(w.find('.hint').exists()).toBe(false);
+
+    layout.fitCols = 20; // 最小字号 9 也只有 28 列
+    (w.vm as unknown as { refit: () => void }).refit();
+    await w.vm.$nextTick();
+    expect(t.options.fontSize).toBe(9);
+    expect(w.emitted('resize')?.at(-1)).toEqual([28, 20]);
+    expect(w.find('.hint').text()).toContain('40');
+
+    layout.fitCols = 60; // 横屏后恢复原字号
+    (w.vm as unknown as { refit: () => void }).refit();
+    expect(t.options.fontSize).toBe(13);
+    expect(w.emitted('resize')?.at(-1)).toEqual([60, 20]);
+  });
+
+  it('does not fit or report a size while hidden', async () => {
+    layout.hidden = true;
+    const w = mount(TerminalPane, { props: { minCols: 40 } });
+    (w.vm as unknown as { refit: () => void }).refit();
+    expect(w.emitted('resize')).toBeUndefined();
+    layout.hidden = false;
+    layout.fitCols = 48;
+    (w.vm as unknown as { refit: () => void }).refit();
+    expect(w.emitted('resize')).toEqual([[48, 20]]);
   });
 });

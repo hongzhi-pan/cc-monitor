@@ -21,9 +21,21 @@ function clear() {
   term?.reset();
 }
 
+const BASE_FONT = 13;
+const MIN_FONT = 9;
+
 function refit() {
   if (!term || !fit) return;
+  // 标签页隐藏时量不出尺寸：这时既不排版也不上报，否则会把 80×24 的默认值报给服务器
+  const dims = fit.proposeDimensions();
+  if (!dims || !Number.isFinite(dims.cols) || !Number.isFinite(dims.rows)) return;
+  if (term.options.fontSize !== BASE_FONT) term.options.fontSize = BASE_FONT;
   fit.fit();
+  if (term.cols < props.minCols) {
+    // 屏幕太窄放不下最少列数：缩小字号让画面完整排进屏幕，而不是让服务器按更宽的尺寸画、到这里再折行
+    term.options.fontSize = Math.max(MIN_FONT, Math.floor((BASE_FONT * term.cols) / props.minCols));
+    fit.fit();
+  }
   narrow.value = term.cols < props.minCols;
   emit('resize', term.cols, term.rows);
 }
@@ -49,7 +61,7 @@ function onTouchEnd() {
 
 onMounted(() => {
   term = new Terminal({
-    fontSize: 13,
+    fontSize: BASE_FONT,
     fontFamily: '"Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, monospace',
     cursorBlink: true,
     scrollback: 2000,
@@ -84,7 +96,7 @@ defineExpose({ write, clear, refit });
 
 <template>
   <div class="wrap">
-    <p v-if="narrow" class="hint">⚠ 当前宽度不足 {{ minCols }} 列，画面会被压缩，横屏或放大浏览器后更清楚</p>
+    <p v-if="narrow" class="hint">⚠ 字号已缩到最小，宽度仍不足 {{ minCols }} 列，画面可能折行，横屏后更清楚</p>
     <div ref="host" class="term" @touchstart.passive="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd" @touchcancel="onTouchEnd" />
   </div>
 </template>

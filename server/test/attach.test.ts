@@ -122,6 +122,25 @@ describe('AttachSession', () => {
     expect(s.size).toEqual({ cols: 80, rows: 24 });
   });
 
+  it('drops the old-width screen when the column count changes, but not on a rows-only change', async () => {
+    const { s, ptys } = harness();
+    const a = client('a', 120, 40);
+    s.addClient(a.c);
+    ptys[0].emit('wide screen');
+    s.resizeClient('a', 120, 30); // 只是键盘弹出：行数变了，画面不清
+    await vi.advanceTimersByTimeAsync(300);
+    expect(a.frames.some((f) => f.t === 'replay')).toBe(false);
+    s.resizeClient('a', 90, 30);
+    await vi.advanceTimersByTimeAsync(300);
+    const replay = a.frames.find((f) => f.t === 'replay') as { d: string };
+    expect(replay.d).toBe('');
+    expect(ptys[0].resizes.at(-1)).toEqual([90, 30]);
+    ptys[0].emit('narrow redraw');
+    const b = client('b', 90, 30);
+    s.addClient(b.c);
+    expect(decodeB64((b.frames.find((f) => f.t === 'replay') as { d: string }).d)).toBe('narrow redraw');
+  });
+
   it('a joining client does not take over the size until it asks', async () => {
     const { s, ptys } = harness();
     const a = client('a', 120, 40);

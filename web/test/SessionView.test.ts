@@ -22,19 +22,21 @@ vi.mock('../src/lib/ws', () => ({
 
 const termWrites: string[] = [];
 let termClears = 0;
+let termRefits = 0;
 vi.mock('../src/components/TerminalPane.vue', () => ({
   default: defineComponent({
     name: 'TerminalPane',
     props: { minCols: Number },
     emits: ['input', 'resize', 'active'],
     setup(_p, { expose }) {
-      expose({ write: (d: string) => termWrites.push(d), clear: () => { termClears += 1; }, refit: () => {} });
+      expose({ write: (d: string) => termWrites.push(d), clear: () => { termClears += 1; }, refit: () => { termRefits += 1; } });
       return () => h('div', { class: 'fake-term' });
     },
   }),
 }));
 
 import SessionView from '../src/pages/SessionView.vue';
+import Composer from '../src/components/Composer.vue';
 
 const history = [{ id: 'u1:0', ts: 1, role: 'user', kind: 'text', text: '历史消息' }];
 const attached = { t: 'state', attach: 'attached', status: 'idle', size: { cols: 80, rows: 24 }, unknownRecords: 0, attachable: true };
@@ -46,6 +48,7 @@ beforeEach(() => {
   sockets.length = 0;
   termWrites.length = 0;
   termClears = 0;
+  termRefits = 0;
   posts.length = 0;
   stopOk = true;
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
@@ -128,6 +131,26 @@ describe('SessionView', () => {
     expect(w.findAll('.msg').length).toBe(2);
     expect(w.text()).toContain('历史消息');
     expect(w.text()).toContain('断线前的回答');
+  });
+  it('shows the composer only on the chat tab and re-reports the terminal size after a reconnect', async () => {
+    const w = mount(SessionView, mountOptions);
+    await flushPromises();
+    sockets[0].status!('open');
+    sockets[0].frame!(attached);
+    await flushPromises();
+    const composerShown = () => (w.findComponent(Composer).element as HTMLElement).style.display !== 'none';
+    expect(termRefits).toBe(0); // 终端还藏着，不排版
+    expect(composerShown()).toBe(true);
+    await w.find('[data-test="tab-term"]').trigger('click');
+    await flushPromises();
+    expect(composerShown()).toBe(false);
+    const before = termRefits;
+    sockets[0].status!('closed');
+    sockets[0].status!('open');
+    await flushPromises();
+    expect(termRefits).toBe(before + 1);
+    await w.find('[data-test="tab-chat"]').trigger('click');
+    expect(composerShown()).toBe(true);
   });
   it('clears before replay, writes output, and sends attach on reattach', async () => {
     const w = mount(SessionView, mountOptions);

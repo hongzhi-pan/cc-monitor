@@ -311,8 +311,17 @@ export class AttachSession extends EventEmitter {
   private applySize(): void {
     const next = this.clampedSize();
     if (next.cols === this.size.cols && next.rows === this.size.rows) return;
+    const colsChanged = next.cols !== this.size.cols;
     this.size = next;
-    if (this.state === 'attached' && this.pty) this.pty.resize(next.cols, next.rows);
+    if (this.state === 'attached' && this.pty) {
+      if (colsChanged) {
+        // 旧画面是按旧宽度排的，留在缓冲和客户端里只会被硬折行：都清掉，等 CC 按新宽度重画
+        this.buffer.clear();
+        const frame: ServerFrame = { t: 'replay', d: '' };
+        for (const c of this.clients.values()) c.send(frame);
+      }
+      this.pty.resize(next.cols, next.rows);
+    }
     this.broadcastState();
   }
 

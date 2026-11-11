@@ -104,6 +104,8 @@ onMounted(() => {
     if (s === 'open') {
       if (everOpened) void loadHistory(); // 重连后补齐断线期间的消息
       everOpened = true;
+      // 每条新连接在服务器上都从默认的 80×24 起步，连上后要重新上报实际尺寸
+      if (tab.value === 'term') term.value?.refit();
     }
   });
   socket.onFrame((f) => {
@@ -145,7 +147,8 @@ onUnmounted(() => {
         <QuickKeys :disabled="!canInput" @key="sendKey" />
       </div>
     </section>
-    <Composer ref="composer" :disabled="!canInput" @send="send" />
+    <!-- 终端画面里 CC 自己有输入框，再放一个会重复，还占掉终端的行数 -->
+    <Composer v-show="tab === 'chat'" ref="composer" :disabled="!canInput" @send="send" />
   </div>
 </template>
 

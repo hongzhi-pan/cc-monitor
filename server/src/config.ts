@@ -72,7 +72,7 @@ export function loadOrCreateConfig(path: string, env: NodeJS.ProcessEnv = proces
     bind: env.CCM_BIND && env.CCM_BIND.length > 0 ? env.CCM_BIND : (typeof file.bind === 'string' && file.bind ? file.bind : '0.0.0.0'),
     token: file.token,
     minCols: num(file.minCols, 40), // 手机约 50 列；电脑客户端活跃时会自然变宽
-    minRows: num(file.minRows, 24),
+    minRows: num(file.minRows, 10), // 手机弹出键盘后可见行数很少；钳得比实际高，画面会错位
     idleDetachMinutes: num(file.idleDetachMinutes, 10),
     ringBufferKB: num(file.ringBufferKB, 512),
     claudeExe,
